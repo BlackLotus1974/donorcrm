@@ -1,6 +1,9 @@
 # Local Production Docker Compose Configuration
-# Runs the app in production mode, connecting to local Supabase
-# Usage: docker-compose -f docker-compose.local-prod.yml up --build
+# Runs the app in production mode, connecting to remote Supabase
+# Usage: docker-compose -f docker-compose.local-prod.yml --env-file .env.docker up --build
+#
+# IMPORTANT: Create .env.docker file with your Supabase credentials
+# See .env.docker.example for template
 
 services:
   # ============================================
@@ -11,17 +14,16 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        - NEXT_PUBLIC_SUPABASE_URL=https://flqgkpytrqpkqmedmtuf.supabase.co
-        - NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZscWdrcHl0cnFwa3FtZWRtdHVmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2OTU0NDgsImV4cCI6MjA3NjI3MTQ0OH0.tK3fERyqheOxtFSICkHuU0aVLzg9AwXgnECAPElgBXg
+        - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+        - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
     container_name: donor-crm-local-prod
     ports:
       - "3000:3000"
     environment:
-      # Supabase Connection (Remote Cloud - No local Supabase needed!)
-      # Both browser and server connect directly to Supabase cloud via HTTPS
-      - NEXT_PUBLIC_SUPABASE_URL=https://flqgkpytrqpkqmedmtuf.supabase.co
-      - NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZscWdrcHl0cnFwa3FtZWRtdHVmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2OTU0NDgsImV4cCI6MjA3NjI3MTQ0OH0.tK3fERyqheOxtFSICkHuU0aVLzg9AwXgnECAPElgBXg
-      - SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZscWdrcHl0cnFwa3FtZWRtdHVmIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MDY5NTQ0OCwiZXhwIjoyMDc2MjcxNDQ4fQ.jatPHfLaKxVvZnnNI5QycHnCx0gX6gFIdiBVybgPbFU
+      # Supabase Connection (loaded from .env.docker)
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
       # Node environment
       - NODE_ENV=production
       - PORT=3000
