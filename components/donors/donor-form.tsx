@@ -160,7 +160,7 @@ export default function DonorForm({
 
       if (result) {
         toast.success(`Donor ${mode === 'create' ? 'created' : 'updated'} successfully!`);
-        router.push(`/donors/${result.id}`);
+        window.location.href = `/donors/${result.id}`;
       } else {
         toast.error(`Failed to ${mode} donor`);
       }
