@@ -1,6 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { hasEnvVars } from "../utils";
+import { canAccessRoute, PUBLIC_ROUTES } from "../permissions";
+import { UserProfile } from "../types";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -45,15 +47,81 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (
-    request.nextUrl.pathname !== "/" &&
-    !user &&
-    !request.nextUrl.pathname.startsWith("/login") &&
-    !request.nextUrl.pathname.startsWith("/auth")
-  ) {
-    // no user, potentially respond by redirecting the user to the login page
+  const pathname = request.nextUrl.pathname;
+
+  // Check if this is a public route
+  const isPublicRoute = PUBLIC_ROUTES.some(route => 
+    pathname === route || pathname.startsWith(route)
+  );
+
+  // Handle unauthenticated users
+  if (!user) {
+    if (!isPublicRoute) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/auth/login";
+      return NextResponse.redirect(url);
+    }
+    return supabaseResponse;
+  }
+
+  // For authenticated users, get their profile and organization info
+  let userProfile: UserProfile | null = null;
+  
+  if (!isPublicRoute) {
+    try {
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select(`
+          *,
+          organization:organizations(*)
+        `)
+        .eq('id', user.id)
+        .single();
+
+      userProfile = profile;
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+      // If we can't fetch profile, redirect to create one
+      if (pathname !== '/onboarding') {
+        const url = request.nextUrl.clone();
+        url.pathname = "/onboarding";
+        return NextResponse.redirect(url);
+      }
+    }
+  }
+
+  // Handle authenticated users accessing auth routes
+  if (user && pathname.startsWith('/auth') && !pathname.includes('/confirm')) {
     const url = request.nextUrl.clone();
-    url.pathname = "/auth/login";
+    // Redirect based on whether user has completed onboarding
+    if (userProfile?.organization_id) {
+      url.pathname = "/dashboard";
+    } else {
+      url.pathname = "/onboarding";
+    }
+    return NextResponse.redirect(url);
+  }
+
+  // Check route permissions for authenticated users on protected routes
+  if (user && !isPublicRoute && userProfile) {
+    const hasOrganization = !!userProfile.organization_id;
+    const { canAccess, redirectTo } = canAccessRoute(pathname, userProfile.role, hasOrganization);
+
+    if (!canAccess && redirectTo) {
+      const url = request.nextUrl.clone();
+      url.pathname = redirectTo;
+      return NextResponse.redirect(url);
+    }
+  }
+
+  // Handle root path redirect for authenticated users
+  if (user && pathname === '/') {
+    const url = request.nextUrl.clone();
+    if (userProfile?.organization_id) {
+      url.pathname = "/dashboard";
+    } else {
+      url.pathname = "/onboarding";
+    }
     return NextResponse.redirect(url);
   }
 

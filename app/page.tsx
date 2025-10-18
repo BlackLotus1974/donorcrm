@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
 import { DeployButton } from "@/components/deploy-button";
 import { EnvVarWarning } from "@/components/env-var-warning";
 import { AuthButton } from "@/components/auth-button";
@@ -8,7 +10,16 @@ import { SignUpUserSteps } from "@/components/tutorial/sign-up-user-steps";
 import { hasEnvVars } from "@/lib/utils";
 import Link from "next/link";
 
-export default function Home() {
+export default async function Home() {
+  // Check if user is authenticated
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  // Redirect authenticated users to dashboard
+  if (user) {
+    redirect("/dashboard");
+  }
+
   return (
     <main className="min-h-screen flex flex-col items-center">
       <div className="flex-1 w-full flex flex-col gap-20 items-center">
@@ -16,7 +27,16 @@ export default function Home() {
           <div className="w-full max-w-5xl flex justify-between items-center p-3 px-5 text-sm">
             <div className="flex gap-5 items-center font-semibold">
               <Link href={"/"}>Next.js Supabase Starter</Link>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-4">
+                <Link href="/context-templates" className="text-sm text-foreground/60 hover:text-foreground transition-colors">
+                  Context Templates
+                </Link>
+                <Link href="/donors" className="text-sm text-foreground/60 hover:text-foreground transition-colors">
+                  Donors
+                </Link>
+                <Link href="/dashboard" className="text-sm text-foreground/60 hover:text-foreground transition-colors">
+                  Dashboard
+                </Link>
                 <DeployButton />
               </div>
             </div>

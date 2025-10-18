@@ -1,0 +1,95 @@
+# Development Docker Compose Configuration
+# Use this for local development with hot reload
+# Run with: docker-compose -f docker-compose.dev.yml up
+
+services:
+  # ============================================
+  # Next.js Application (Development Mode)
+  # ============================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: donor-crm-dev-app
+    ports:
+      - "3000:3000"
+    environment:
+      # Supabase Connection
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL:-https://asclamyhgsbgixleplte.supabase.co}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      # Node environment
+      - NODE_ENV=development
+    volumes:
+      # Mount source code for hot reload
+      - .:/app
+      # Use anonymous volumes to prevent overwriting node_modules and .next
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - crm-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ============================================
+  # PostgreSQL Database (for local development)
+  # ============================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: donor-crm-dev-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=donor_crm
+    volumes:
+      - postgres-dev-data:/var/lib/postgresql/data
+      - ./supabase/migrations:/docker-entrypoint-initdb.d
+    networks:
+      - crm-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================
+  # Redis (for caching and session management)
+  # ============================================
+  redis:
+    image: redis:7-alpine
+    container_name: donor-crm-dev-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-dev-data:/data
+    networks:
+      - crm-network
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+# ============================================
+# Networks
+# ============================================
+networks:
+  crm-network:
+    driver: bridge
+
+# ============================================
+# Volumes
+# ============================================
+volumes:
+  postgres-dev-data:
+    driver: local
+  redis-dev-data:
+    driver: local

@@ -1,0 +1,6 @@
+First Name,Last Name,Email,Phone,City,State,Country,Employer,Giving Level,Status
+John,Doe,john.doe@example.com,(555) 123-4567,New York,NY,US,Acme Corp,major,active
+Jane,Smith,jane.smith@example.com,(555) 987-6543,Los Angeles,CA,US,Tech Inc,mid-level,active
+Bob,Johnson,bob.j@example.com,(555) 456-7890,Chicago,IL,US,Finance Co,annual,active
+Alice,Williams,alice.w@example.com,(555) 321-0987,Houston,TX,US,Healthcare Plus,major,active
+Charlie,Brown,charlie.brown@example.com,(555) 654-3210,Phoenix,AZ,US,Education Fund,prospect,active

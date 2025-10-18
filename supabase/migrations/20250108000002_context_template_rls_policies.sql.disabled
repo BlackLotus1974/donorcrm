@@ -1,0 +1,233 @@
+-- Row Level Security (RLS) Policies for Context Engineering Template
+
+-- Enable RLS on all context template tables
+ALTER TABLE context_templates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE context_template_collaborators ENABLE ROW LEVEL SECURITY;
+ALTER TABLE context_template_comments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE context_template_versions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE context_template_analytics ENABLE ROW LEVEL SECURITY;
+
+-- Context Templates Policies
+-- Users can view templates in their organization or public templates
+CREATE POLICY "Users can view organization templates" ON context_templates
+    FOR SELECT USING (
+        organization_id IN (
+            SELECT organization_id FROM user_profiles 
+            WHERE id = auth.uid()
+        )
+        OR is_template = true -- Public templates
+    );
+
+-- Users can create templates in their organization
+CREATE POLICY "Users can create templates" ON context_templates
+    FOR INSERT WITH CHECK (
+        organization_id IN (
+            SELECT organization_id FROM user_profiles 
+            WHERE id = auth.uid()
+        )
+        AND created_by = auth.uid()
+    );
+
+-- Users can update templates they created or have edit permissions
+CREATE POLICY "Users can update their templates" ON context_templates
+    FOR UPDATE USING (
+        created_by = auth.uid()
+        OR id IN (
+            SELECT template_id FROM context_template_collaborators 
+            WHERE user_id = auth.uid() 
+            AND (permissions->>'can_edit')::boolean = true
+        )
+    );
+
+-- Only template creators or admins can delete templates
+CREATE POLICY "Users can delete their templates" ON context_templates
+    FOR DELETE USING (
+        created_by = auth.uid()
+        OR (
+            organization_id IN (
+                SELECT organization_id FROM user_profiles 
+                WHERE id = auth.uid() AND role = 'admin'
+            )
+        )
+    );
+
+-- Context Template Collaborators Policies
+-- Users can view collaborators for templates they have access to
+CREATE POLICY "Users can view template collaborators" ON context_template_collaborators
+    FOR SELECT USING (
+        template_id IN (
+            SELECT id FROM context_templates 
+            WHERE organization_id IN (
+                SELECT organization_id FROM user_profiles 
+                WHERE id = auth.uid()
+            )
+        )
+    );
+
+-- Template owners can manage collaborators
+CREATE POLICY "Template owners can manage collaborators" ON context_template_collaborators
+    FOR ALL USING (
+        template_id IN (
+            SELECT id FROM context_templates 
+            WHERE created_by = auth.uid()
+        )
+    );
+
+-- Users can update their own collaboration settings
+CREATE POLICY "Users can update their collaboration" ON context_template_collaborators
+    FOR UPDATE USING (user_id = auth.uid());
+
+-- Context Template Comments Policies
+-- Users can view comments on templates they have access to
+CREATE POLICY "Users can view template comments" ON context_template_comments
+    FOR SELECT USING (
+        template_id IN (
+            SELECT id FROM context_templates 
+            WHERE organization_id IN (
+                SELECT organization_id FROM user_profiles 
+                WHERE id = auth.uid()
+            )
+        )
+    );
+
+-- Users can create comments on templates they have access to
+CREATE POLICY "Users can create comments" ON context_template_comments
+    FOR INSERT WITH CHECK (
+        template_id IN (
+            SELECT id FROM context_templates 
+            WHERE organization_id IN (
+                SELECT organization_id FROM user_profiles 
+                WHERE id = auth.uid()
+            )
+        )
+        AND created_by = auth.uid()
+    );
+
+-- Users can update their own comments
+CREATE POLICY "Users can update their comments" ON context_template_comments
+    FOR UPDATE USING (created_by = auth.uid());
+
+-- Users can delete their own comments or template owners can delete any comment
+CREATE POLICY "Users can delete comments" ON context_template_comments
+    FOR DELETE USING (
+        created_by = auth.uid()
+        OR template_id IN (
+            SELECT id FROM context_templates 
+            WHERE created_by = auth.uid()
+        )
+    );
+
+-- Context Template Versions Policies
+-- Users can view versions of templates they have access to
+CREATE POLICY "Users can view template versions" ON context_template_versions
+    FOR SELECT USING (
+        template_id IN (
+            SELECT id FROM context_templates 
+            WHERE organization_id IN (
+                SELECT organization_id FROM user_profiles 
+                WHERE id = auth.uid()
+            )
+        )
+    );
+
+-- Only system can create versions (through triggers)
+CREATE POLICY "System can create versions" ON context_template_versions
+    FOR INSERT WITH CHECK (created_by = auth.uid());
+
+-- Context Template Analytics Policies
+-- Users can view analytics for their organization's templates
+CREATE POLICY "Users can view template analytics" ON context_template_analytics
+    FOR SELECT USING (
+        organization_id IN (
+            SELECT organization_id FROM user_profiles 
+            WHERE id = auth.uid()
+        )
+    );
+
+-- System and users can insert analytics
+CREATE POLICY "Users can create analytics" ON context_template_analytics
+    FOR INSERT WITH CHECK (
+        organization_id IN (
+            SELECT organization_id FROM user_profiles 
+            WHERE id = auth.uid()
+        )
+    );
+
+-- Create helper functions for RLS policies
+
+-- Function to check if user has template access
+CREATE OR REPLACE FUNCTION user_has_template_access(template_uuid UUID, access_type TEXT DEFAULT 'view')
+RETURNS BOOLEAN AS $
+DECLARE
+    user_org_id UUID;
+    template_org_id UUID;
+    has_collaboration_access BOOLEAN := false;
+BEGIN
+    -- Get user's organization
+    SELECT organization_id INTO user_org_id 
+    FROM user_profiles 
+    WHERE id = auth.uid();
+    
+    -- Get template's organization
+    SELECT organization_id INTO template_org_id 
+    FROM context_templates 
+    WHERE id = template_uuid;
+    
+    -- Check if same organization
+    IF user_org_id = template_org_id THEN
+        RETURN true;
+    END IF;
+    
+    -- Check collaboration access
+    SELECT EXISTS(
+        SELECT 1 FROM context_template_collaborators 
+        WHERE template_id = template_uuid 
+        AND user_id = auth.uid()
+        AND CASE 
+            WHEN access_type = 'edit' THEN (permissions->>'can_edit')::boolean = true
+            WHEN access_type = 'comment' THEN (permissions->>'can_comment')::boolean = true
+            WHEN access_type = 'approve' THEN (permissions->>'can_approve')::boolean = true
+            ELSE true -- view access
+        END
+    ) INTO has_collaboration_access;
+    
+    RETURN has_collaboration_access;
+END;
+$ language 'plpgsql' SECURITY DEFINER;
+
+-- Function to check if user is template owner
+CREATE OR REPLACE FUNCTION user_is_template_owner(template_uuid UUID)
+RETURNS BOOLEAN AS $
+BEGIN
+    RETURN EXISTS(
+        SELECT 1 FROM context_templates 
+        WHERE id = template_uuid 
+        AND created_by = auth.uid()
+    );
+END;
+$ language 'plpgsql' SECURITY DEFINER;
+
+-- Function to get user's role in organization
+CREATE OR REPLACE FUNCTION get_user_org_role()
+RETURNS TEXT AS $
+DECLARE
+    user_role TEXT;
+BEGIN
+    SELECT role INTO user_role 
+    FROM user_profiles 
+    WHERE id = auth.uid();
+    
+    RETURN COALESCE(user_role, 'viewer');
+END;
+$ language 'plpgsql' SECURITY DEFINER;
+
+-- Grant necessary permissions
+GRANT USAGE ON SCHEMA public TO authenticated;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO authenticated;
+
+-- Grant permissions for service role (for admin operations)
+GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO service_role;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO service_role;

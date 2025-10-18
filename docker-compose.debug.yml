@@ -1,0 +1,23 @@
+# Debug configuration - isolates the app service to capture errors
+# This file focuses ONLY on the failing app container
+# Run with: docker-compose -f docker-compose.debug.yml up
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: donor-crm-app-debug
+    ports:
+      - "3000:3000"
+    environment:
+      # Minimal environment to reproduce the issue
+      - NODE_ENV=development
+      - NEXT_TELEMETRY_DISABLED=1
+    # Mount volumes EXACTLY as in the failing configuration
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    # The command that is failing
+    command: npm run dev

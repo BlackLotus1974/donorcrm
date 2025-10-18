@@ -1,0 +1,423 @@
+-- Context Engineering Template Database Schema
+-- This migration adds tables and functions for the Context Engineering Template feature
+
+-- Create enum types for context template system
+CREATE TYPE planning_stage AS ENUM (
+    'problem_identification',
+    'context_gathering', 
+    'information_organization',
+    'validation_review',
+    'implementation_preparation'
+);
+
+CREATE TYPE scenario_type AS ENUM (
+    'debugging',
+    'feature_development',
+    'code_review',
+    'architecture_planning',
+    'testing_strategy',
+    'custom'
+);
+
+CREATE TYPE complexity_level AS ENUM (
+    'simple',
+    'moderate', 
+    'complex',
+    'enterprise'
+);
+
+CREATE TYPE validation_status AS ENUM (
+    'draft',
+    'review',
+    'approved',
+    'needs_revision'
+);
+
+-- Context templates table
+CREATE TABLE context_templates (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    
+    -- Template metadata
+    title TEXT NOT NULL,
+    description TEXT,
+    version TEXT DEFAULT '1.0',
+    scenario_type scenario_type NOT NULL DEFAULT 'custom',
+    complexity_level complexity_level NOT NULL DEFAULT 'moderate',
+    
+    -- Template header
+    header JSONB DEFAULT '{
+        "title": "",
+        "purpose": "",
+        "principles": [],
+        "scope": "",
+        "usage_guidelines": []
+    }',
+    
+    -- Context components (the 7 core components)
+    components JSONB DEFAULT '{
+        "instructions": {"content": "", "completeness": 0, "quality_score": 0, "sources": [], "validation_status": "draft"},
+        "user_prompt": {"content": "", "completeness": 0, "quality_score": 0, "sources": [], "validation_status": "draft"},
+        "state_history": {"content": "", "completeness": 0, "quality_score": 0, "sources": [], "validation_status": "draft"},
+        "long_term_memory": {"content": "", "completeness": 0, "quality_score": 0, "sources": [], "validation_status": "draft"},
+        "retrieved_information": {"content": "", "completeness": 0, "quality_score": 0, "sources": [], "validation_status": "draft"},
+        "available_tools": {"content": "", "completeness": 0, "quality_score": 0, "sources": [], "validation_status": "draft"},
+        "structured_output": {"content": "", "completeness": 0, "quality_score": 0, "sources": [], "validation_status": "draft"}
+    }',
+    
+    -- Planning framework
+    planning_framework JSONB DEFAULT '{
+        "current_stage": "problem_identification",
+        "completed_stages": [],
+        "stage_outputs": {}
+    }',
+    
+    -- Quality assessment
+    quality_assessment JSONB DEFAULT '{
+        "completeness_score": 0,
+        "clarity_score": 0,
+        "accuracy_score": 0,
+        "effectiveness_score": 0,
+        "overall_score": 0,
+        "assessment_notes": []
+    }',
+    
+    -- Template metadata
+    metadata JSONB DEFAULT '{
+        "team_size": 1,
+        "estimated_duration": 0,
+        "tags": [],
+        "custom_fields": {}
+    }',
+    
+    -- Status and workflow
+    status validation_status DEFAULT 'draft',
+    is_template BOOLEAN DEFAULT false, -- true for reusable templates, false for instances
+    parent_template_id UUID REFERENCES context_templates(id) ON DELETE SET NULL,
+    
+    -- Audit fields
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    created_by UUID REFERENCES user_profiles(id) ON DELETE SET NULL,
+    updated_by UUID REFERENCES user_profiles(id) ON DELETE SET NULL
+);
+
+-- Context template collaborators (for team collaboration)
+CREATE TABLE context_template_collaborators (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    template_id UUID NOT NULL REFERENCES context_templates(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES user_profiles(id) ON DELETE CASCADE,
+    role TEXT NOT NULL DEFAULT 'contributor', -- owner, editor, contributor, viewer
+    permissions JSONB DEFAULT '{
+        "can_edit": true,
+        "can_comment": true,
+        "can_approve": false,
+        "can_delete": false
+    }',
+    invited_at TIMESTAMPTZ DEFAULT NOW(),
+    accepted_at TIMESTAMPTZ,
+    created_by UUID REFERENCES user_profiles(id) ON DELETE SET NULL,
+    
+    UNIQUE(template_id, user_id)
+);
+
+-- Context template comments (for review and collaboration)
+CREATE TABLE context_template_comments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    template_id UUID NOT NULL REFERENCES context_templates(id) ON DELETE CASCADE,
+    parent_comment_id UUID REFERENCES context_template_comments(id) ON DELETE CASCADE,
+    
+    -- Comment content
+    content TEXT NOT NULL,
+    component_path TEXT, -- e.g., 'components.instructions', 'header.purpose'
+    line_number INTEGER,
+    
+    -- Comment metadata
+    is_resolved BOOLEAN DEFAULT false,
+    resolved_at TIMESTAMPTZ,
+    resolved_by UUID REFERENCES user_profiles(id) ON DELETE SET NULL,
+    
+    -- Audit fields
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    created_by UUID NOT NULL REFERENCES user_profiles(id) ON DELETE CASCADE,
+    updated_by UUID REFERENCES user_profiles(id) ON DELETE SET NULL
+);
+
+-- Context template versions (for version control)
+CREATE TABLE context_template_versions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    template_id UUID NOT NULL REFERENCES context_templates(id) ON DELETE CASCADE,
+    version_number TEXT NOT NULL,
+    
+    -- Snapshot of template data at this version
+    template_data JSONB NOT NULL,
+    
+    -- Version metadata
+    change_summary TEXT,
+    is_major_version BOOLEAN DEFAULT false,
+    
+    -- Audit fields
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    created_by UUID NOT NULL REFERENCES user_profiles(id) ON DELETE CASCADE,
+    
+    UNIQUE(template_id, version_number)
+);
+
+-- Context template usage analytics
+CREATE TABLE context_template_analytics (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    template_id UUID NOT NULL REFERENCES context_templates(id) ON DELETE CASCADE,
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES user_profiles(id) ON DELETE SET NULL,
+    
+    -- Analytics data
+    event_type TEXT NOT NULL, -- created, viewed, edited, completed, exported, etc.
+    event_data JSONB DEFAULT '{}',
+    
+    -- Performance metrics
+    completion_time_seconds INTEGER,
+    quality_score DECIMAL(3,2),
+    success_outcome BOOLEAN,
+    
+    -- Context
+    session_id TEXT,
+    user_agent TEXT,
+    
+    -- Timestamp
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Create indexes for performance
+CREATE INDEX idx_context_templates_organization_id ON context_templates(organization_id);
+CREATE INDEX idx_context_templates_scenario_type ON context_templates(scenario_type);
+CREATE INDEX idx_context_templates_status ON context_templates(status);
+CREATE INDEX idx_context_templates_is_template ON context_templates(is_template);
+CREATE INDEX idx_context_templates_created_by ON context_templates(created_by);
+CREATE INDEX idx_context_templates_created_at ON context_templates(created_at);
+CREATE INDEX idx_context_templates_updated_at ON context_templates(updated_at);
+
+CREATE INDEX idx_context_template_collaborators_template_id ON context_template_collaborators(template_id);
+CREATE INDEX idx_context_template_collaborators_user_id ON context_template_collaborators(user_id);
+
+CREATE INDEX idx_context_template_comments_template_id ON context_template_comments(template_id);
+CREATE INDEX idx_context_template_comments_created_by ON context_template_comments(created_by);
+CREATE INDEX idx_context_template_comments_created_at ON context_template_comments(created_at);
+
+CREATE INDEX idx_context_template_versions_template_id ON context_template_versions(template_id);
+CREATE INDEX idx_context_template_versions_created_at ON context_template_versions(created_at);
+
+CREATE INDEX idx_context_template_analytics_template_id ON context_template_analytics(template_id);
+CREATE INDEX idx_context_template_analytics_organization_id ON context_template_analytics(organization_id);
+CREATE INDEX idx_context_template_analytics_event_type ON context_template_analytics(event_type);
+CREATE INDEX idx_context_template_analytics_created_at ON context_template_analytics(created_at);
+
+-- Full-text search index for context templates
+CREATE INDEX idx_context_templates_search ON context_templates USING GIN(
+    to_tsvector('english', 
+        COALESCE(title, '') || ' ' || 
+        COALESCE(description, '') || ' ' ||
+        COALESCE(header->>'purpose', '') || ' ' ||
+        COALESCE(components->>'instructions'->>'content', '') || ' ' ||
+        COALESCE(components->>'user_prompt'->>'content', '')
+    )
+);
+
+-- Function to update updated_at timestamp
+CREATE OR REPLACE FUNCTION update_context_template_updated_at()
+RETURNS TRIGGER AS $
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$ language 'plpgsql';
+
+-- Triggers for updated_at
+CREATE TRIGGER update_context_templates_updated_at 
+    BEFORE UPDATE ON context_templates 
+    FOR EACH ROW EXECUTE FUNCTION update_context_template_updated_at();
+
+CREATE TRIGGER update_context_template_comments_updated_at 
+    BEFORE UPDATE ON context_template_comments 
+    FOR EACH ROW EXECUTE FUNCTION update_context_template_updated_at();
+
+-- Function to automatically create template version on significant changes
+CREATE OR REPLACE FUNCTION create_template_version()
+RETURNS TRIGGER AS $
+BEGIN
+    -- Only create version if this is a significant change (status change or major content update)
+    IF OLD.status != NEW.status OR 
+       OLD.components != NEW.components OR 
+       OLD.header != NEW.header THEN
+        
+        INSERT INTO context_template_versions (
+            template_id,
+            version_number,
+            template_data,
+            change_summary,
+            is_major_version,
+            created_by
+        ) VALUES (
+            NEW.id,
+            NEW.version,
+            row_to_json(OLD),
+            CASE 
+                WHEN OLD.status != NEW.status THEN 'Status changed from ' || OLD.status || ' to ' || NEW.status
+                ELSE 'Content updated'
+            END,
+            OLD.status != NEW.status,
+            NEW.updated_by
+        );
+    END IF;
+    
+    RETURN NEW;
+END;
+$ language 'plpgsql';
+
+-- Trigger for automatic version creation
+CREATE TRIGGER create_context_template_version 
+    AFTER UPDATE ON context_templates 
+    FOR EACH ROW EXECUTE FUNCTION create_template_version();
+
+-- Function to calculate template quality score
+CREATE OR REPLACE FUNCTION calculate_template_quality_score(template_components JSONB)
+RETURNS DECIMAL(3,2) AS $
+DECLARE
+    component_count INTEGER := 0;
+    total_score DECIMAL := 0;
+    component_key TEXT;
+    component_data JSONB;
+BEGIN
+    -- Iterate through each component and sum up quality scores
+    FOR component_key IN SELECT jsonb_object_keys(template_components) LOOP
+        component_data := template_components->component_key;
+        IF component_data->>'quality_score' IS NOT NULL THEN
+            total_score := total_score + (component_data->>'quality_score')::DECIMAL;
+            component_count := component_count + 1;
+        END IF;
+    END LOOP;
+    
+    -- Return average score, or 0 if no components
+    IF component_count > 0 THEN
+        RETURN ROUND(total_score / component_count, 2);
+    ELSE
+        RETURN 0.00;
+    END IF;
+END;
+$ language 'plpgsql';
+
+-- Function to get template usage statistics
+CREATE OR REPLACE FUNCTION get_template_usage_stats(template_uuid UUID)
+RETURNS TABLE(
+    total_uses BIGINT,
+    unique_users BIGINT,
+    avg_completion_time DECIMAL,
+    success_rate DECIMAL,
+    last_used TIMESTAMPTZ
+) AS $
+BEGIN
+    RETURN QUERY
+    SELECT 
+        COUNT(*) as total_uses,
+        COUNT(DISTINCT user_id) as unique_users,
+        AVG(completion_time_seconds) as avg_completion_time,
+        AVG(CASE WHEN success_outcome THEN 1.0 ELSE 0.0 END) as success_rate,
+        MAX(created_at) as last_used
+    FROM context_template_analytics 
+    WHERE template_id = template_uuid;
+END;
+$ language 'plpgsql';
+
+-- Insert default template scenarios
+INSERT INTO context_templates (
+    organization_id,
+    title,
+    description,
+    scenario_type,
+    complexity_level,
+    is_template,
+    header,
+    components,
+    status,
+    created_by
+) VALUES 
+-- We'll use a placeholder organization_id that will be replaced during setup
+(
+    '00000000-0000-0000-0000-000000000000'::UUID,
+    'Debugging Scenario Template',
+    'Template for debugging issues in software applications',
+    'debugging',
+    'moderate',
+    true,
+    '{
+        "title": "Debugging Context Template",
+        "purpose": "Systematically capture context for debugging software issues",
+        "principles": [
+            "Gather comprehensive error information",
+            "Document reproduction steps clearly", 
+            "Include relevant system state",
+            "Specify expected vs actual behavior"
+        ],
+        "scope": "Software debugging and issue resolution",
+        "usage_guidelines": [
+            "Use when investigating bugs or unexpected behavior",
+            "Complete all sections before starting debugging",
+            "Update findings as investigation progresses"
+        ]
+    }',
+    '{
+        "instructions": {
+            "content": "1. Identify and document the specific issue\n2. Gather error messages and logs\n3. Document steps to reproduce\n4. Analyze system state and environment\n5. Propose debugging approach",
+            "completeness": 90,
+            "quality_score": 4.5,
+            "sources": ["debugging-best-practices.md"],
+            "validation_status": "approved"
+        },
+        "user_prompt": {
+            "content": "What is the specific issue you are experiencing? Include error messages, unexpected behavior, and when it occurs.",
+            "completeness": 85,
+            "quality_score": 4.2,
+            "sources": [],
+            "validation_status": "approved"
+        },
+        "state_history": {
+            "content": "Current system state: [environment, versions, configurations]\nRecent changes: [code changes, deployments, configuration updates]\nError logs: [relevant log entries with timestamps]",
+            "completeness": 80,
+            "quality_score": 4.0,
+            "sources": [],
+            "validation_status": "approved"
+        },
+        "long_term_memory": {
+            "content": "Known issues and solutions in this codebase\nCommon debugging patterns for this technology stack\nTeam debugging procedures and escalation paths",
+            "completeness": 75,
+            "quality_score": 3.8,
+            "sources": [],
+            "validation_status": "approved"
+        },
+        "retrieved_information": {
+            "content": "Documentation references\nStack Overflow solutions\nGitHub issues and discussions\nVendor support articles",
+            "completeness": 70,
+            "quality_score": 3.5,
+            "sources": [],
+            "validation_status": "approved"
+        },
+        "available_tools": {
+            "content": "Debugging tools: [debuggers, profilers, log analyzers]\nMonitoring systems: [APM tools, metrics dashboards]\nTesting tools: [unit tests, integration tests]\nTeam resources: [subject matter experts, documentation]",
+            "completeness": 85,
+            "quality_score": 4.1,
+            "sources": [],
+            "validation_status": "approved"
+        },
+        "structured_output": {
+            "content": "Expected output:\n- Root cause analysis\n- Step-by-step solution\n- Prevention measures\n- Documentation updates needed",
+            "completeness": 90,
+            "quality_score": 4.3,
+            "sources": [],
+            "validation_status": "approved"
+        }
+    }',
+    'approved',
+    NULL
+);
+
+-- Add more default templates as needed...
