@@ -107,13 +107,22 @@ export default function DonorForm({
   const [newTag, setNewTag] = useState('');
   const [newInterest, setNewInterest] = useState('');
 
+  // Log donor data to debug validation issues
+  if (donor) {
+    console.log('Loading donor data:', {
+      donor_type: donor.donor_type,
+      giving_level: donor.giving_level,
+      status: donor.status,
+    });
+  }
+
   const form = useForm<DonorFormInput>({
     resolver: zodResolver(donorSchema),
     defaultValues: donor
       ? {
           ...donor,
-          donor_type: donor.donor_type || 'individual', // Default if null
-          giving_level: donor.giving_level || undefined, // Convert null to undefined
+          donor_type: (donor.donor_type as DonorType) || 'individual', // Default if null/invalid
+          giving_level: (donor.giving_level as GivingLevel | undefined) || undefined, // Convert null to undefined
           email_opt_in: donor.communication_preferences?.email ?? true,
           phone_opt_in: donor.communication_preferences?.phone ?? true,
           mail_opt_in: donor.communication_preferences?.mail ?? true,
