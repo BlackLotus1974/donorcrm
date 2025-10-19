@@ -61,12 +61,41 @@ const donorSchema = z.object({
   job_title: z.string().nullable().optional(),
 
   // Donor Specific Fields
-  donor_type: z.enum(['individual', 'foundation', 'corporation'] as const).default('individual'),
+  donor_type: z.preprocess(
+    (val) => {
+      // Normalize donor_type: convert to lowercase and handle invalid values
+      if (!val || typeof val !== 'string') return 'individual';
+      const normalized = val.toLowerCase();
+      if (['individual', 'foundation', 'corporation'].includes(normalized)) {
+        return normalized;
+      }
+      return 'individual'; // Default for invalid values
+    },
+    z.enum(['individual', 'foundation', 'corporation'] as const)
+  ),
   source: z.string().nullable().optional(),
   assigned_to: z.string().nullable().optional(),
   capacity_rating: z.string().nullable().optional(),
   interest_areas: z.array(z.string()).nullable().optional(),
-  giving_level: z.enum(['major', 'mid-level', 'annual', 'lapsed', 'prospect'] as const).nullable().optional().or(z.literal(null)),
+  giving_level: z.preprocess(
+    (val) => {
+      // Handle invalid giving_level values from database
+      if (!val || typeof val !== 'string') return undefined;
+      const normalized = val.toLowerCase();
+      // Map old/invalid values to valid ones
+      const mapping: Record<string, string> = {
+        'high': 'major',
+        'medium': 'mid-level',
+        'low': 'annual',
+      };
+      const mapped = mapping[normalized] || normalized;
+      if (['major', 'mid-level', 'annual', 'lapsed', 'prospect'].includes(mapped)) {
+        return mapped;
+      }
+      return undefined; // Return undefined for invalid values
+    },
+    z.enum(['major', 'mid-level', 'annual', 'lapsed', 'prospect'] as const).optional()
+  ),
 
   // Communication Preferences
   email_opt_in: z.boolean().default(true),
