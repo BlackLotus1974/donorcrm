@@ -41,43 +41,43 @@ const donorSchema = z.object({
   // Personal Information
   first_name: z.string().min(1, 'First name is required'),
   last_name: z.string().min(1, 'Last name is required'),
-  preferred_name: z.string().optional(),
-  title: z.string().optional(),
-  suffix: z.string().optional(),
-  
+  preferred_name: z.string().nullable().optional(),
+  title: z.string().nullable().optional(),
+  suffix: z.string().nullable().optional(),
+
   // Contact Information
-  email: z.union([z.string().email('Invalid email'), z.literal('')]).optional(),
-  phone: z.string().optional(),
-  mobile: z.string().optional(),
-  address_line1: z.string().optional(),
-  address_line2: z.string().optional(),
-  city: z.string().optional(),
-  state: z.string().optional(),
-  postal_code: z.string().optional(),
+  email: z.union([z.string().email('Invalid email'), z.literal('')]).nullable().optional(),
+  phone: z.string().nullable().optional(),
+  mobile: z.string().nullable().optional(),
+  address_line1: z.string().nullable().optional(),
+  address_line2: z.string().nullable().optional(),
+  city: z.string().nullable().optional(),
+  state: z.string().nullable().optional(),
+  postal_code: z.string().nullable().optional(),
   country: z.string().default('US'),
-  
+
   // Professional Information
-  employer: z.string().optional(),
-  job_title: z.string().optional(),
-  
+  employer: z.string().nullable().optional(),
+  job_title: z.string().nullable().optional(),
+
   // Donor Specific Fields
-  donor_type: z.enum(['individual', 'foundation', 'corporation'] as const).default('individual'),
-  source: z.string().optional(),
-  assigned_to: z.string().optional(),
-  capacity_rating: z.string().optional(),
-  interest_areas: z.array(z.string()).optional(),
-  giving_level: z.enum(['major', 'mid-level', 'annual', 'lapsed', 'prospect'] as const).optional(),
-  
+  donor_type: z.enum(['individual', 'foundation', 'corporation'] as const).nullable().default('individual'),
+  source: z.string().nullable().optional(),
+  assigned_to: z.string().nullable().optional(),
+  capacity_rating: z.string().nullable().optional(),
+  interest_areas: z.array(z.string()).nullable().optional(),
+  giving_level: z.enum(['major', 'mid-level', 'annual', 'lapsed', 'prospect'] as const).nullable().optional(),
+
   // Communication Preferences
   email_opt_in: z.boolean().default(true),
   phone_opt_in: z.boolean().default(true),
   mail_opt_in: z.boolean().default(true),
   newsletter_opt_in: z.boolean().default(false),
-  
+
   // Status and Notes
   status: z.enum(['active', 'inactive', 'deceased', 'do_not_contact'] as const).default('active'),
-  notes: z.string().optional(),
-  tags: z.array(z.string()).optional(),
+  notes: z.string().nullable().optional(),
+  tags: z.array(z.string()).nullable().optional(),
 });
 
 type DonorFormInput = z.infer<typeof donorSchema>;
