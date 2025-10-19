@@ -61,12 +61,12 @@ const donorSchema = z.object({
   job_title: z.string().nullable().optional(),
 
   // Donor Specific Fields
-  donor_type: z.enum(['individual', 'foundation', 'corporation'] as const).nullable().default('individual'),
+  donor_type: z.enum(['individual', 'foundation', 'corporation'] as const).default('individual'),
   source: z.string().nullable().optional(),
   assigned_to: z.string().nullable().optional(),
   capacity_rating: z.string().nullable().optional(),
   interest_areas: z.array(z.string()).nullable().optional(),
-  giving_level: z.enum(['major', 'mid-level', 'annual', 'lapsed', 'prospect'] as const).nullable().optional(),
+  giving_level: z.enum(['major', 'mid-level', 'annual', 'lapsed', 'prospect'] as const).nullable().optional().or(z.literal(null)),
 
   // Communication Preferences
   email_opt_in: z.boolean().default(true),
@@ -112,6 +112,8 @@ export default function DonorForm({
     defaultValues: donor
       ? {
           ...donor,
+          donor_type: donor.donor_type || 'individual', // Default if null
+          giving_level: donor.giving_level || undefined, // Convert null to undefined
           email_opt_in: donor.communication_preferences?.email ?? true,
           phone_opt_in: donor.communication_preferences?.phone ?? true,
           mail_opt_in: donor.communication_preferences?.mail ?? true,
