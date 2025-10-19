@@ -109,11 +109,11 @@ export default function DonorForm({
 
   // Log donor data to debug validation issues
   if (donor) {
-    console.log('Loading donor data:', {
-      donor_type: donor.donor_type,
-      giving_level: donor.giving_level,
-      status: donor.status,
-    });
+    console.log('=== DONOR DATA FROM DATABASE ===');
+    console.log('donor_type:', donor.donor_type, '(type:', typeof donor.donor_type, ')');
+    console.log('giving_level:', donor.giving_level, '(type:', typeof donor.giving_level, ')');
+    console.log('status:', donor.status, '(type:', typeof donor.status, ')');
+    console.log('Full donor object keys:', Object.keys(donor));
   }
 
   const form = useForm<DonorFormInput>({
