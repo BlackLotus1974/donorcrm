@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Background circle -->
+  <circle cx="50" cy="50" r="48" fill="#3b82f6" stroke="#1e40af" stroke-width="2"/>
+
+  <!-- Heart shape (representing giving/charity) -->
+  <path d="M50 75 C50 75, 30 60, 30 45 C30 35, 38 30, 45 35 C48 37, 50 40, 50 40 C50 40, 52 37, 55 35 C62 30, 70 35, 70 45 C70 60, 50 75, 50 75 Z"
+        fill="#ffffff"
+        stroke="#e0e7ff"
+        stroke-width="1.5"/>
+
+  <!-- Giving hand element (stylized) -->
+  <circle cx="35" cy="48" r="3" fill="#fbbf24" opacity="0.9"/>
+  <circle cx="65" cy="48" r="3" fill="#fbbf24" opacity="0.9"/>
+  <circle cx="50" cy="30" r="3" fill="#fbbf24" opacity="0.9"/>
+</svg>
