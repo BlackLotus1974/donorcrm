@@ -136,8 +136,14 @@ export default function DonorForm({
   const watchedInterests = form.watch('interest_areas') || [];
 
   const onSubmit = async (data: DonorFormInput) => {
+    console.log('=== FORM SUBMIT STARTED ===');
+    console.log('Mode:', mode);
+    console.log('Donor ID:', donor?.id);
+    console.log('Form data:', data);
+
     try {
       setIsSubmitting(true);
+      console.log('isSubmitting set to true');
 
       // Transform form data to DonorFormData
       const donorData: DonorFormData = {
@@ -150,30 +156,44 @@ export default function DonorForm({
         },
       };
 
+      console.log('Transformed donor data:', donorData);
+
       let result: Donor | null = null;
 
       if (mode === 'create') {
-        console.log('Creating donor with data:', donorData);
+        console.log('Calling donorService.createDonor...');
         result = await donorService.createDonor(organizationId, donorData);
+        console.log('Create result:', result);
       } else if (donor) {
-        console.log('Updating donor with data:', donorData);
+        console.log('Calling donorService.updateDonor with ID:', donor.id);
         result = await donorService.updateDonor(donor.id, donorData);
+        console.log('Update result:', result);
+      } else {
+        console.error('ERROR: mode is edit but no donor object exists');
       }
 
       if (result) {
+        console.log('Operation successful, showing toast and navigating...');
         toast.success(`Donor ${mode === 'create' ? 'created' : 'updated'} successfully!`);
         // Use router.push for client-side navigation with refresh
-        router.push(`/donors/${result.id}`);
+        const targetUrl = `/donors/${result.id}`;
+        console.log('Navigating to:', targetUrl);
+        router.push(targetUrl);
         router.refresh();
       } else {
+        console.error('Operation failed: result is null');
         toast.error(`Failed to ${mode} donor. Please check the console for details.`);
-        console.error('Donor operation returned null result');
       }
     } catch (err) {
-      console.error('Error in donor form submission:', err);
+      console.error('=== EXCEPTION IN FORM SUBMIT ===');
+      console.error('Error type:', err instanceof Error ? 'Error' : typeof err);
+      console.error('Error message:', err instanceof Error ? err.message : String(err));
+      console.error('Full error:', err);
       toast.error(err instanceof Error ? err.message : `Failed to ${mode} donor`);
     } finally {
+      console.log('Setting isSubmitting to false');
       setIsSubmitting(false);
+      console.log('=== FORM SUBMIT ENDED ===');
     }
   };
 
@@ -204,7 +224,11 @@ export default function DonorForm({
   };
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={form.handleSubmit(onSubmit, (errors) => {
+      console.error('=== FORM VALIDATION ERRORS ===');
+      console.error('Validation errors:', errors);
+      toast.error('Please fix form validation errors');
+    })} className="space-y-6">
       {/* Header Actions */}
       <div className="flex items-center justify-between">
         <Button variant="outline" asChild>
