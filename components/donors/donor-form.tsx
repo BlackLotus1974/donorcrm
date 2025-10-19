@@ -153,18 +153,24 @@ export default function DonorForm({
       let result: Donor | null = null;
 
       if (mode === 'create') {
+        console.log('Creating donor with data:', donorData);
         result = await donorService.createDonor(organizationId, donorData);
       } else if (donor) {
+        console.log('Updating donor with data:', donorData);
         result = await donorService.updateDonor(donor.id, donorData);
       }
 
       if (result) {
         toast.success(`Donor ${mode === 'create' ? 'created' : 'updated'} successfully!`);
-        window.location.href = `/donors/${result.id}`;
+        // Use router.push for client-side navigation with refresh
+        router.push(`/donors/${result.id}`);
+        router.refresh();
       } else {
-        toast.error(`Failed to ${mode} donor`);
+        toast.error(`Failed to ${mode} donor. Please check the console for details.`);
+        console.error('Donor operation returned null result');
       }
     } catch (err) {
+      console.error('Error in donor form submission:', err);
       toast.error(err instanceof Error ? err.message : `Failed to ${mode} donor`);
     } finally {
       setIsSubmitting(false);
