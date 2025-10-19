@@ -46,7 +46,7 @@ const donorSchema = z.object({
   suffix: z.string().optional(),
   
   // Contact Information
-  email: z.string().email('Invalid email').optional().or(z.literal('')),
+  email: z.union([z.string().email('Invalid email'), z.literal('')]).optional(),
   phone: z.string().optional(),
   mobile: z.string().optional(),
   address_line1: z.string().optional(),
@@ -226,8 +226,16 @@ export default function DonorForm({
   return (
     <form onSubmit={form.handleSubmit(onSubmit, (errors) => {
       console.error('=== FORM VALIDATION ERRORS ===');
-      console.error('Validation errors:', errors);
-      toast.error('Please fix form validation errors');
+      console.error('Error fields:', Object.keys(errors));
+      Object.entries(errors).forEach(([field, error]: [string, any]) => {
+        console.error(`Field "${field}":`, error?.message || error?.type || 'Unknown error');
+        if (error?.message) console.error(`  Message: ${error.message}`);
+        if (error?.type) console.error(`  Type: ${error.type}`);
+      });
+
+      // Show user-friendly error toast
+      const errorFields = Object.keys(errors).join(', ');
+      toast.error(`Validation errors in: ${errorFields}`);
     })} className="space-y-6">
       {/* Header Actions */}
       <div className="flex items-center justify-between">

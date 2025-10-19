@@ -60,7 +60,10 @@
       "Bash(start https://supabase.com/dashboard/project/flqgkpytrqpkqmedmtuf/auth/url-configuration)",
       "Bash(start https://supabase.com/dashboard/project/flqgkpytrqpkqmedmtuf/auth/policies)",
       "Bash(start http://localhost:3004/auth/sign-up)",
-      "Bash(gh:*)"
+      "Bash(gh:*)",
+      "Bash(git commit:*)",
+      "Bash(if [ ! -d \"app/campaigns\" ])",
+      "Bash(then mkdir -p \"app/campaigns\")"
     ],
     "deny": [],
     "ask": []
