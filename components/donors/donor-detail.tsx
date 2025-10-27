@@ -39,6 +39,7 @@ import Link from 'next/link';
 import { Donor, UserProfile } from '@/lib/types';
 import { donorService } from '@/lib/services/donor-service';
 import { toast } from 'sonner';
+import DonorSearchNav from '@/components/donors/donor-search-nav';
 
 interface DonorDetailProps {
   donor: Donor & {
@@ -155,37 +156,39 @@ export default function DonorDetail({ donor, userProfile, availableUsers }: Dono
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="outline" asChild>
+      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+        <div className="flex items-center gap-4 flex-1 min-w-0">
+          <Button variant="outline" asChild className="flex-shrink-0">
             <Link href="/donors">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Donors
             </Link>
           </Button>
-          
-          <div>
-            <h1 className="text-3xl font-bold flex items-center gap-3">
-              {donor.first_name} {donor.last_name}
+
+          <div className="flex-1 min-w-0">
+            <h1 className="text-3xl font-bold flex items-center gap-3 flex-wrap">
+              <span className="truncate">
+                {donor.first_name} {donor.last_name}
+              </span>
               {donor.preferred_name && (
                 <span className="text-xl text-gray-500 font-normal">
                   ({donor.preferred_name})
                 </span>
               )}
             </h1>
-            
-            <div className="flex items-center gap-2 mt-1">
+
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
               <Badge className={getStatusColor(donor.status)}>
                 {getStatusIcon(donor.status)}
                 <span className="ml-1 capitalize">{donor.status.replace('_', ' ')}</span>
               </Badge>
-              
+
               {donor.giving_level && (
                 <Badge className={getGivingLevelColor(donor.giving_level)}>
                   {donor.giving_level.charAt(0).toUpperCase() + donor.giving_level.slice(1)}
                 </Badge>
               )}
-              
+
               <Badge variant="outline">
                 {donor.donor_type.charAt(0).toUpperCase() + donor.donor_type.slice(1)}
               </Badge>
@@ -193,7 +196,13 @@ export default function DonorDetail({ donor, userProfile, availableUsers }: Dono
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Search Navigation and Actions */}
+        <div className="flex items-center gap-2 w-full lg:w-auto">
+          <DonorSearchNav
+            organizationId={donor.organization_id}
+            currentDonorId={donor.id}
+            className="flex-1 lg:flex-initial"
+          />
           {canEdit && (
             <Button asChild>
               <Link href={`/donors/${donor.id}/edit`}>
